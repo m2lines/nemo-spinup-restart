@@ -31,6 +31,8 @@ dependencies = [
     "matplotlib",
     "netcdf4",
     "pyyaml",
+    "xesmf",
+    "f90nml",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +43,8 @@ dev = [
 ]
 
 [project.scripts]
-nemo-spinup-restart = "nemo_spinup_restart.cli:main"
+nemo-restart = "nemo_spinup_restart.cli:main"
+nemo-upscale = "nemo_spinup_restart.regrid_cli:main"   
 
 [tool.setuptools.packages.find]
 where = ["src"]
