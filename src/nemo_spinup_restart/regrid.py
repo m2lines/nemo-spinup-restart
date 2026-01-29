@@ -154,13 +154,10 @@ def extrapolate_to_land(restart, mask):
         Restart with land points filled
     """
     # Create 3D mask matching restart coordinates
-
-    breakpoint()
-    # tmask_3d = mask.tmask.rename({"y_c": "y", "x_c": "x", "z_c": "nav_lev"}) 
-    tmask_3d = mask.tmask
-    tmask_3d = tmask_3d.assign_coords({"nav_lev": restart.nav_lev}).drop_vars(
-        ["x", "y"], errors="ignore"
-    )
+    # Squeeze removes time_counter dimension if present
+    tmask_3d = mask.tmask.squeeze()
+    tmask_3d = tmask_3d.assign_coords({"nav_lev": restart.nav_lev})
+    tmask_3d = tmask_3d.drop_vars(["x", "y", "time_counter"], errors="ignore")
 
     # 2D mask for surface variables
     tmask_2d = tmask_3d.isel(nav_lev=0)
@@ -233,9 +230,17 @@ def regrid_restart(
         "lat": (["y", "x"], mask_hr.gphit.squeeze().values)
     })
 
+
+    restart_lr.to_netcdf('out_stages/restart_lr.nc', unlimited_dims="time_counter")
+
+    restart_hr_template.to_netcdf('out_stages/restart_hr_template.nc', unlimited_dims="time_counter")
+
     # Extrapolate coarse restart onto land
     restart_lr_extrap = extrapolate_to_land(restart_lr, mask_lr)
+
+    restart_lr_extrap.to_netcdf('out_stages/restart_lr_extrap.nc', unlimited_dims="time_counter")
     # Create regridder (bilinear interpolation)
+    breakpoint()
     regridder = xe.Regridder(
         restart_lr_extrap,
         restart_hr_template,
@@ -246,24 +251,37 @@ def regrid_restart(
 
     # Apply regridding
     restart_hr = regridder(restart_lr_extrap)
-
+    breakpoint()
+    restart_hr.to_netcdf('generated/generated_restart_C2_fine_unmasked.nc', unlimited_dims="time_counter")
+    breakpoint()
     # Apply fine resolution mask
     # Rename mask dimensions to match restart coordinates
-    tmask_3d = mask_hr.tmask
+    tmask_3d = mask_hr.tmask.squeeze()  # Remove time dimension if singleton
     tmask_3d = tmask_3d.assign_coords({"nav_lev": restart_hr.nav_lev})
-    
-    # Drop time_counter coordinate from mask (it has different value than restart)
-    tmask_3d = tmask_3d.drop_vars(["x", "y", "time_counter"], errors="ignore").squeeze()
+    tmask_3d = tmask_3d.drop_vars(["x", "y", "time_counter"], errors="ignore")
     tmask_3d = tmask_3d.compute()
 
     tmask_2d = tmask_3d.isel(nav_lev=0).compute()
+    
+    # Convert mask to float for comparison (it's int8)
+    tmask_3d = tmask_3d.astype(float)
+    tmask_2d = tmask_2d.astype(float)
 
-    # Mask regridded data (xarray broadcasts mask over time automatically)
+    # Mask regridded data (keep ocean values where mask==1, set land to 0)
     for var_name, var_data in restart_hr.items():
         if var_data.ndim == 3:  # 2D variables (+ time)
-            restart_hr[var_name] = var_data.where(tmask_2d == 1.0, 0.0)
+            # Broadcast mask over time dimension
+            mask_bc = tmask_2d.expand_dims({"time_counter": var_data.time_counter})
+            restart_hr[var_name] = var_data
+            # restart_hr[var_name] = var_data.where(mask_bc == 1.0, 0.0)
+            # write var_data.where(mask_bc == 1.0, 0.0) to file:
+            # breakpoint()
+
+
         elif var_data.ndim == 4:  # 3D variables (+ time)
-            restart_hr[var_name] = var_data.where(tmask_3d == 1.0, 0.0)
+            # Broadcast mask over time dimension  
+            mask_bc = tmask_3d.expand_dims({"time_counter": var_data.time_counter})
+            restart_hr[var_name] = var_data.where(mask_bc == 1.0, 0.0)
 
     # Zero out velocities (will be recomputed by NEMO)
     restart_hr["ub"].values[:] = 0.0
