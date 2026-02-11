@@ -115,8 +115,8 @@ def create_restart_from_predictions(
         np.expand_dims(salinity, axis=0),
     )
 
-    restart["sshb"] = (("time_counter", "y", "x"), np.expand_dims(ssh, axis=0))
-    restart["sshn"] = (("time_counter", "y", "x"), np.expand_dims(ssh, axis=0))
+    restart["sshb"] = (("time_counter", "y", "x"), ssh)
+    restart["sshn"] = (("time_counter", "y", "x"), ssh)
 
     restart["rhop"] = (
         ("time_counter", "nav_lev", "y", "x"),
@@ -156,8 +156,9 @@ def extrapolate_to_land(restart, mask):
     # Create 3D mask matching restart coordinates
     # Squeeze removes time_counter dimension if present
     tmask_3d = mask.tmask.squeeze()
+    # Assign nav_lev to match restart, keep x/y dimensions aligned
     tmask_3d = tmask_3d.assign_coords({"nav_lev": restart.nav_lev})
-    tmask_3d = tmask_3d.drop_vars(["x", "y", "time_counter"], errors="ignore")
+    tmask_3d = tmask_3d.drop_vars(["time_counter"], errors="ignore")
 
     # 2D mask for surface variables
     tmask_2d = tmask_3d.isel(nav_lev=0)
@@ -221,24 +222,33 @@ def regrid_restart(
 
     # Add lon/lat coordinates for xESMF (it needs CF-compliant coordinates)
     # Get lon/lat from mesh_mask files (glamt, gphit are T-point coordinates)
-    restart_lr = restart_lr.assign_coords({
-        "lon": (["y", "x"], mask_lr.glamt.squeeze().values),
-        "lat": (["y", "x"], mask_lr.gphit.squeeze().values)
-    })
-    restart_hr_template = restart_hr_template.assign_coords({
-        "lon": (["y", "x"], mask_hr.glamt.squeeze().values),
-        "lat": (["y", "x"], mask_hr.gphit.squeeze().values)
-    })
+    restart_lr = restart_lr.assign_coords(
+        {
+            "lon": (["y", "x"], mask_lr.glamt.squeeze().values),
+            "lat": (["y", "x"], mask_lr.gphit.squeeze().values),
+        }
+    )
+    restart_hr_template = restart_hr_template.assign_coords(
+        {
+            "lon": (["y", "x"], mask_hr.glamt.squeeze().values),
+            "lat": (["y", "x"], mask_hr.gphit.squeeze().values),
+        }
+    )
 
+    restart_lr.to_netcdf("out_stages/restart_lr.nc", unlimited_dims="time_counter")
 
-    restart_lr.to_netcdf('out_stages/restart_lr.nc', unlimited_dims="time_counter")
-
-    restart_hr_template.to_netcdf('out_stages/restart_hr_template.nc', unlimited_dims="time_counter")
+    restart_hr_template.to_netcdf(
+        "out_stages/restart_hr_template.nc", unlimited_dims="time_counter"
+    )
 
     # Extrapolate coarse restart onto land
     restart_lr_extrap = extrapolate_to_land(restart_lr, mask_lr)
 
-    restart_lr_extrap.to_netcdf('out_stages/restart_lr_extrap.nc', unlimited_dims="time_counter")
+    restart_lr_extrap.to_netcdf(
+        "out_stages/restart_lr_extrap.nc", unlimited_dims="time_counter"
+    )
+
+    exit()
     # Create regridder (bilinear interpolation)
     breakpoint()
     regridder = xe.Regridder(
@@ -252,7 +262,9 @@ def regrid_restart(
     # Apply regridding
     restart_hr = regridder(restart_lr_extrap)
     breakpoint()
-    restart_hr.to_netcdf('generated/generated_restart_C2_fine_unmasked.nc', unlimited_dims="time_counter")
+    restart_hr.to_netcdf(
+        "generated/generated_restart_C2_fine_unmasked.nc", unlimited_dims="time_counter"
+    )
     breakpoint()
     # Apply fine resolution mask
     # Rename mask dimensions to match restart coordinates
@@ -262,26 +274,13 @@ def regrid_restart(
     tmask_3d = tmask_3d.compute()
 
     tmask_2d = tmask_3d.isel(nav_lev=0).compute()
-    
-    # Convert mask to float for comparison (it's int8)
-    tmask_3d = tmask_3d.astype(float)
-    tmask_2d = tmask_2d.astype(float)
 
     # Mask regridded data (keep ocean values where mask==1, set land to 0)
     for var_name, var_data in restart_hr.items():
         if var_data.ndim == 3:  # 2D variables (+ time)
-            # Broadcast mask over time dimension
-            mask_bc = tmask_2d.expand_dims({"time_counter": var_data.time_counter})
-            restart_hr[var_name] = var_data
-            # restart_hr[var_name] = var_data.where(mask_bc == 1.0, 0.0)
-            # write var_data.where(mask_bc == 1.0, 0.0) to file:
-            # breakpoint()
-
-
+            restart_hr[var_name] = var_data.where(tmask_2d == 1.0, 0.0)
         elif var_data.ndim == 4:  # 3D variables (+ time)
-            # Broadcast mask over time dimension  
-            mask_bc = tmask_3d.expand_dims({"time_counter": var_data.time_counter})
-            restart_hr[var_name] = var_data.where(mask_bc == 1.0, 0.0)
+            restart_hr[var_name] = var_data.where(tmask_3d == 1.0, 0.0)
 
     # Zero out velocities (will be recomputed by NEMO)
     restart_hr["ub"].values[:] = 0.0
@@ -358,13 +357,9 @@ def upscale_predictions(
         Path to the final upscaled restart file
     """
     # Step 1: Load predictions (select specified time index)
-    temp = np.load(Path(predictions_dir) / "toce.npy")[time_index]
-    sal = np.load(Path(predictions_dir) / "soce.npy")[time_index]
-    ssh = np.load(Path(predictions_dir) / "ssh.npy")[time_index]
-
-    # Ensure ssh is 2D by squeezing if needed
-    if ssh.ndim == 3:
-        ssh = np.squeeze(ssh)
+    temp = np.load(Path(predictions_dir) / "toce.npy")[time_index, :, :, :]
+    sal = np.load(Path(predictions_dir) / "soce.npy")[time_index, :, :, :]
+    ssh = np.load(Path(predictions_dir) / "ssh.npy")[time_index, :, :]
 
     print(
         f"Loaded predictions at time index {time_index}: temp {temp.shape}, sal {sal.shape}, ssh {ssh.shape}"
