@@ -1,0 +1,5 @@
+# DINO-setup.yaml
+
+mesh_mask: /Users/matt/work/nemo/spinup-data/Gorce-data/Dinonline/restart0/mesh_mask_new.nc
+
+restart_files: 'generated_restart_C2_fine'
