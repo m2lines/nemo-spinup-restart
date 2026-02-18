@@ -155,31 +155,60 @@ def extrapolate_to_land(restart, mask):
     """
     # Create 3D mask matching restart coordinates
     # Squeeze removes time_counter dimension if present
-    tmask_3d = mask.tmask.squeeze()
+    # tmask_3d = mask.tmask.squeeze()
     # Assign nav_lev to match restart, keep x/y dimensions aligned
-    tmask_3d = tmask_3d.assign_coords({"nav_lev": restart.nav_lev})
-    tmask_3d = tmask_3d.drop_vars(["time_counter"], errors="ignore")
+    # tmask_3d = tmask_3d.assign_coords({"nav_lev": restart.nav_lev})
+    # Drop coordinate variables that might conflict (keep only dimension indices)
+    # tmask_3d = tmask_3d.drop_vars(["x", "y", "time_counter"], errors="ignore")
+    print(mask)
+    # Mask needs to match the coordinates of the restart file
+ 
+    tmask_3d = mask.tmask.squeeze()
 
+    # breakpoint()
+    # tmask_3d = tmask_3d.drop_vars(["x", "y", "time_counter"], errors="ignore")
+    
+    # Only align vertical coordinate - xarray will broadcast on dimension names
+    if "nav_lev" in restart.dims:
+        tmask_3d = tmask_3d.assign_coords({"nav_lev": restart.nav_lev})
+    
     # 2D mask for surface variables
     tmask_2d = tmask_3d.isel(nav_lev=0)
 
     # Apply mask (set land to NaN)
-    restart_masked = restart.copy()
+    # Apply mask (set land to NaN) - modify in place like grid_manipulation.py
     for var_name, var_data in restart.items():
         if var_data.ndim == 3:  # 2D variables (+ time)
-            restart_masked[var_name] = var_data.where(tmask_2d == 1.0)
+            print("Masking variable:", var_name)
+            restart[var_name] = var_data.where(tmask_2d == 1.0)
         elif var_data.ndim == 4:  # 3D variables (+ time)
-            restart_masked[var_name] = var_data.where(tmask_3d == 1.0)
+            print("Masking variable:", var_name)
+            restart[var_name] = var_data.where(tmask_3d == 1.0)
+
 
     # Extrapolate NaN values
-    restart_filled_x = restart_masked.interpolate_na(
+    restart_filled_x = restart.interpolate_na(
         dim="x", method="nearest", fill_value="extrapolate"
     )
-    restart_filled_xy = restart_filled_x.interpolate_na(
+    restart = restart_filled_x.interpolate_na(
         dim="y", method="nearest", fill_value="extrapolate"
     )
 
-    return restart_filled_xy
+        # Extrapolate NaN values - apply to each variable individually
+    # for var_name, var_data in restart.items():
+    #     if var_data.ndim in [3, 4]:  # Only extrapolate spatial variables
+    #         print(f"Extrapolating {var_name}")
+    #         # Fill along x
+    #         filled_x = var_data.interpolate_na(
+    #             dim="x", method="nearest", fill_value="extrapolate"
+    #         )
+    #         # Fill along y
+    #         filled_xy = filled_x.interpolate_na(
+    #             dim="y", method="nearest", fill_value="extrapolate"
+    #         )
+    #         restart[var_name] = filled_xy
+
+    return restart
 
 
 def regrid_restart(
@@ -235,22 +264,23 @@ def regrid_restart(
         }
     )
 
-    restart_lr.to_netcdf("out_stages/restart_lr.nc", unlimited_dims="time_counter")
+    # restart_lr.to_netcdf("out_stages/restart_lr.nc", unlimited_dims="time_counter")
 
-    restart_hr_template.to_netcdf(
-        "out_stages/restart_hr_template.nc", unlimited_dims="time_counter"
-    )
+    # restart_hr_template.to_netcdf(
+    #     "out_stages/restart_hr_template.nc", unlimited_dims="time_counter"
+    # )
 
     # Extrapolate coarse restart onto land
     restart_lr_extrap = extrapolate_to_land(restart_lr, mask_lr)
 
-    restart_lr_extrap.to_netcdf(
-        "out_stages/restart_lr_extrap.nc", unlimited_dims="time_counter"
-    )
+    print(restart_lr_extrap)
 
-    exit()
+    # restart_lr_extrap.to_netcdf(
+    #     "out_stages/restart_lr_extrap.nc", unlimited_dims="time_counter"
+    # )
+
     # Create regridder (bilinear interpolation)
-    breakpoint()
+    # breakpoint()
     regridder = xe.Regridder(
         restart_lr_extrap,
         restart_hr_template,
@@ -261,11 +291,18 @@ def regrid_restart(
 
     # Apply regridding
     restart_hr = regridder(restart_lr_extrap)
-    breakpoint()
-    restart_hr.to_netcdf(
-        "generated/generated_restart_C2_fine_unmasked.nc", unlimited_dims="time_counter"
-    )
-    breakpoint()
+    # breakpoint()
+    # restart_hr.to_netcdf(
+    #     "generated_mine/generated_restart_C2_fine_unmasked-1.nc",
+    #     unlimited_dims="time_counter",
+    # )
+    # breakpoint()
+    
+    # Clean up coordinates: rename lat/lon (from xESMF) to nav_lat/nav_lon, drop x/y
+    # The lat/lon from xESMF are the true 2D grid coordinates, so we keep them as nav_lat/nav_lon
+    restart_hr = restart_hr.rename({"lat": "nav_lat", "lon": "nav_lon"})
+    restart_hr = restart_hr.drop_vars(["x", "y"], errors="ignore")
+    
     # Apply fine resolution mask
     # Rename mask dimensions to match restart coordinates
     tmask_3d = mask_hr.tmask.squeeze()  # Remove time dimension if singleton
@@ -294,11 +331,6 @@ def regrid_restart(
     restart_hr["adatrj"] = restart_lr.adatrj
     restart_hr["ntime"] = restart_lr.ntime
     restart_hr["rdt"] = restart_hr_template["rdt"]  # Use timestep from fine resolution
-
-    # Clean up duplicate coordinates (keep template structure)
-    # Drop lon/lat that were added for xESMF, and nav_lon/nav_lat from mask
-    coords_to_drop = ["lon", "lat", "nav_lon", "nav_lat"]
-    restart_hr = restart_hr.drop_vars(coords_to_drop, errors="ignore")
 
     # Match variable order from template
     restart_hr = restart_hr[list(restart_hr_template.keys())]
