@@ -1,5 +1,9 @@
 # Diffusion state restart file generation and evaluation
 
+## Data setup 
+
+TODO: Host data on spiritx
+
 ## Regrid and upscale
 
 We need 1-degree, 0.25-degree restart file and mesh mask references. 
