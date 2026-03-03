@@ -8,7 +8,7 @@ import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from src.nemo_spinup_restart.utils import get_ocean_term
+from nemo_spinup_restart.utils import get_ocean_term
 
 
 # SUPER LONG - MAYBE DO IT IN BASH OR ERROR
@@ -372,7 +372,7 @@ def update_e3t(restart, mask):
     # Sea Surface height - (t,y,x)
     ssh = restart.sshn
     # bathy mask on grid T - (t,z,y,x)
-    tmask = mask.tmask
+    # tmask = mask.tmask # UNUSED
     e3t = e3t_ini * (1 + ssh * ssmask / (bathy + 1 - ssmask))  # - (t,y,x)
     return e3t
 
@@ -409,32 +409,6 @@ def get_deptht(restart, mask):
     depth_0[:, 1:] = depth_0[:, 0:1].data + e3w_0[:, 1:].cumsum(dim="nav_lev")
     deptht = depth_0 * (1 + ssh / (bathy + 1 - ssmask)) * tmask
     return deptht
-
-
-def update_rhop(restart, mask):
-    """
-    Update rhop variable in the array based on temperature (thetao) and salinity (so).
-
-    Parameters
-    ----------
-    restart : xarray.Dataset
-        Restart file.
-    mask : xarray.Dataset
-        Mask file.
-
-    Returns
-    -------
-    rhop : xarray.DataArray
-        Updated potential density.
-    """
-    x_slice, y_slice = getXYslice(array)
-    so = restart["sn"]
-    thetao = restart["tn"]
-    tmask = mask["tmask"][-1:, :, y_slice, x_slice]
-    deptht = get_depth(restart, mask)
-
-    rhop, _rho_insitu = get_density(thetao, so, deptht, tmask)
-    return rhop
 
 
 def get_density(thetao, so, depth, tmask):  # noqa: PLR0915
@@ -559,7 +533,8 @@ def get_density(thetao, so, depth, tmask):  # noqa: PLR0915
                 + EOS020
             )
             * zt
-            + ((((EOS510 * zs + EOS410) * zs + EOS310) * zs + EOS210) * zs + EOS110) * zs
+            + ((((EOS510 * zs + EOS410) * zs + EOS310) * zs + EOS210) * zs + EOS110)
+            * zs
             + EOS010
         )
         * zt
@@ -675,7 +650,7 @@ def update_u_velocity(restart, mask, e3t_new):
     # Masks
     tmask = mask.tmask
     umask = mask.umask
-    vmask = mask.vmask
+    # vmask = mask.vmask # UNUSED
 
     _, rho_insitu = get_density(thetao, so, deptht, tmask)
     rho_insitu = rho_insitu.where(tmask)
@@ -760,5 +735,6 @@ def add_bottom_velocity(v_restart, v_update, mask):
     ind_prof = (mask.argmin(dim="nav_lev") - 1) * mask.isel(nav_lev=0)
     v_fond = v_restart.isel(nav_lev=ind_prof, time_counter=0)
     mask_nan_update = np.isnan(v_update)
-    v_new = mask_nan_update * v_restart + (1 - mask_nan_update) * (v_fond + v_update)
+    v_new = mask_nan_update * v_restart + (1 - mask_nan_update) * (v_fond + v_update)  # noqa: F841
+    # TODO: Check if this is a catastrophic bug (issue #14)
     return v_restart
