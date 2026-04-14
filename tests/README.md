@@ -25,7 +25,7 @@ bash tests/download_test_data.sh
 
 The script fetches `restart-test.zip` from
 [Zenodo record 19557419](https://zenodo.org/records/19557419) and extracts it
-into `tests/data/`. It is safe to re-run — if the expected files are already
+into `tests/data/`. It is safe to re-run - if the expected files are already
 present, the download is skipped.
 
 ## Running Tests Locally
@@ -50,7 +50,7 @@ pytest tests/test_integration.py -v
 3. Propagates predictions to derived variables via `propagate_pred`
 4. Compares every variable in the output against the reference file using `np.testing.assert_allclose`
 
-This means the test catches any regression in the physics, not just crashes.
+This means the test catches any regression in the physics.
 
 ## CI/CD Setup
 
