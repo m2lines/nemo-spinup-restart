@@ -1,4 +1,4 @@
-name: Integration Test with Remote Data
+name: Integration test
 
 on:
   pull_request:
