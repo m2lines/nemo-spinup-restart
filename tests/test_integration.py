@@ -45,7 +45,7 @@ def test_data():
         "restart": restart,
         "mask": mask,
         "reference": reference,
-        "ocean_terms_file": str(DATA_DIR / "ocean_terms.yaml"),
+        "ocean_terms_file": str(DATA_DIR / "ocean_terms.DINO.yaml"),
         "prediction_path": str(DATA_DIR / "simu_predicted"),
     }
 
