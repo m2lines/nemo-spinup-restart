@@ -4,7 +4,7 @@ Integration test for nemo-spinup-restart using real NetCDF data.
 Compares the output of the full pipeline against a known-good reference file.
 Test data must be downloaded first via:
 
-    bash scripts/download_test_data.sh
+    bash tests/download_test_data.sh
 """
 
 import pathlib
@@ -27,17 +27,18 @@ def test_data():
     for name in (
         "DINO_00576000_restart.nc",
         "mesh_mask.nc",
-        "NEW_DINO_00576000_restart.nc",
+        "reconstructed-restarts/NEW_DINO_00576000_restart.nc",
     ):
         path = DATA_DIR / name
         assert path.exists(), (
-            f"{path} not found. Run `bash scripts/download_test_data.sh` first."
+            f"{path} not found. Run `bash tests/download_test_data.sh` first."
         )
 
     restart = xr.open_dataset(DATA_DIR / "DINO_00576000_restart.nc", decode_times=False)
     mask = get_mask_file(str(DATA_DIR / "mesh_mask.nc"), restart)
     reference = xr.open_dataset(
-        DATA_DIR / "NEW_DINO_00576000_restart.nc", decode_times=False
+        DATA_DIR / "reconstructed-restarts" / "NEW_DINO_00576000_restart.nc",
+        decode_times=False,
     )
 
     return {
@@ -45,7 +46,7 @@ def test_data():
         "mask": mask,
         "reference": reference,
         "ocean_terms_file": str(DATA_DIR / "ocean_terms.yaml"),
-        "prediction_path": str(DATA_DIR / "simus_predicted"),
+        "prediction_path": str(DATA_DIR / "simu_predicted"),
     }
 
 

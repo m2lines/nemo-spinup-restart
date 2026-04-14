@@ -21,18 +21,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
 
-    - name: Install xz-utils for decompression
-      run: sudo apt-get update && sudo apt-get install -y xz-utils
-
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan spirit1.ipsl.fr >> ~/.ssh/known_hosts
-
     - name: Download test data
-      run: bash scripts/download_test_data.sh
+      run: bash tests/download_test_data.sh
 
     - name: Run integration tests
       run: pytest tests/test_integration.py -v

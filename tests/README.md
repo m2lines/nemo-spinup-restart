@@ -11,25 +11,22 @@ Test data lives in `tests/data/` (gitignored — not committed to the repo):
 |------|-------------|
 | `DINO_00576000_restart.nc` | Input restart file |
 | `mesh_mask.nc` | Ocean mask file |
-| `NEW_DINO_00576000_restart.nc` | Reference output for comparison |
 | `ocean_terms.yaml` | Configuration file for ocean terms |
-| `simus_predicted/` | Directory containing ML prediction files |
+| `simu_predicted/` | Directory containing ML prediction files (`toce.npy`, `soce.npy`, `ssh.npy`) |
+| `reconstructed-restarts/NEW_DINO_00576000_restart.nc` | Reference output for comparison |
 
 ## Downloading Test Data
 
-Test data is stored on `spirit1` and downloaded via:
+Test data is published on Zenodo and downloaded via:
 
 ```bash
-bash scripts/download_test_data.sh
+bash tests/download_test_data.sh
 ```
 
-This requires SSH access to `spirit1`. Files are skipped if already present,
-so the script is safe to re-run.
-
-> **Note:** Once the NEMO-SPINUP THREDDS quota is restored and the data is
-> published, the script will be updated to use `curl` and SSH access will no
-> longer be required:
-> <https://thredds-su.ipsl.fr/thredds/catalog/NEMO-SPINUP/restart/simple/>
+The script fetches `restart-test.zip` from
+[Zenodo record 19557419](https://zenodo.org/records/19557419) and extracts it
+into `tests/data/`. It is safe to re-run — if the expected files are already
+present, the download is skipped.
 
 ## Running Tests Locally
 
@@ -37,8 +34,8 @@ so the script is safe to re-run.
 # Install the package with dev dependencies
 pip install -e ".[dev]"
 
-# Download test data (requires SSH access to spirit1)
-bash scripts/download_test_data.sh
+# Download test data from Zenodo
+bash tests/download_test_data.sh
 
 # Run the integration test
 pytest tests/test_integration.py -v
@@ -59,14 +56,13 @@ This means the test catches any regression in the physics, not just crashes.
 
 The workflow `.github/workflows/integration_test.yml` runs on every PR. It:
 
-1. Sets up SSH using the `SSH_PRIVATE_KEY` GitHub Secret
-2. Calls `scripts/download_test_data.sh` to fetch data into `tests/data/`
+1. Installs the package with dev dependencies
+2. Calls `tests/download_test_data.sh` to fetch data from Zenodo into `tests/data/`
 3. Runs `pytest tests/test_integration.py -v`
 
-To configure: add the private key for `spirit1` as a GitHub Secret named `SSH_PRIVATE_KEY`.
+No secrets or SSH configuration are required — the data is fetched over HTTPS.
 
 ## Troubleshooting
 
-- **File not found**: Run `bash scripts/download_test_data.sh` first
+- **File not found**: Run `bash tests/download_test_data.sh` first
 - **Import errors**: Ensure the package is installed with `pip install -e ".[dev]"`
-- **SSH issues**: Check that the SSH key has access to `spirit1` and that `ssh-keyscan spirit1` resolves correctly in your environment
