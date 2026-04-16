@@ -27,7 +27,7 @@ def test_data():
     for name in (
         "DINO_00576000_restart.nc",
         "mesh_mask.nc",
-        "reconstructed-restarts/NEW_DINO_00576000_restart.nc",
+        "reconstructed-restarts/NEW_DINO_00576000_restart-with-velocity.nc",
     ):
         path = DATA_DIR / name
         assert path.exists(), (
@@ -37,7 +37,9 @@ def test_data():
     restart = xr.open_dataset(DATA_DIR / "DINO_00576000_restart.nc", decode_times=False)
     mask = get_mask_file(str(DATA_DIR / "mesh_mask.nc"), restart)
     reference = xr.open_dataset(
-        DATA_DIR / "reconstructed-restarts" / "NEW_DINO_00576000_restart.nc",
+        DATA_DIR
+        / "reconstructed-restarts"
+        / "NEW_DINO_00576000_restart-with-velocity.nc",
         decode_times=False,
     )
 
