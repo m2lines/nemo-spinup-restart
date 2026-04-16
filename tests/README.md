@@ -13,7 +13,7 @@ Test data lives in `tests/data/` (gitignored — not committed to the repo):
 | `mesh_mask.nc` | Ocean mask file |
 | `ocean_terms.yaml` | Configuration file for ocean terms |
 | `simu_predicted/` | Directory containing ML prediction files (`toce.npy`, `soce.npy`, `ssh.npy`) |
-| `reconstructed-restarts/NEW_DINO_00576000_restart-with-velocity.nc` | Reference output for comparison (includes recomputed velocities) |
+| `reconstructed-restarts/NEW_DINO_00576000_restart.nc` | Reference output for comparison |
 
 ## Downloading Test Data
 

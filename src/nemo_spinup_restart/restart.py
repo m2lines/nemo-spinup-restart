@@ -734,5 +734,5 @@ def add_bottom_velocity(v_restart, v_update, mask):
     ind_prof = (mask.argmin(dim="nav_lev") - 1) * mask.isel(nav_lev=0)
     v_fond = v_restart.isel(nav_lev=ind_prof, time_counter=0)
     mask_nan_update = np.isnan(v_update)
-    v_new = mask_nan_update * v_restart + (1 - mask_nan_update) * (v_fond + v_update)
+    v_new = mask_nan_update * v_restart + (1 - mask_nan_update) * (v_update + v_fond)
     return v_new
