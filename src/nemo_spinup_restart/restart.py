@@ -730,11 +730,9 @@ def add_bottom_velocity(v_restart, v_update, mask):
     -------
     v_new : numpy.ndarray or xarray.DataArray
         Velocity array with bottom velocity values added.
-        This isn't the behavior expected, need to return v_new
     """
     ind_prof = (mask.argmin(dim="nav_lev") - 1) * mask.isel(nav_lev=0)
     v_fond = v_restart.isel(nav_lev=ind_prof, time_counter=0)
     mask_nan_update = np.isnan(v_update)
-    v_new = mask_nan_update * v_restart + (1 - mask_nan_update) * (v_fond + v_update)  # noqa: F841
-    # TODO: Check if this is a catastrophic bug (issue #14)
-    return v_restart
+    v_new = mask_nan_update * v_restart + (1 - mask_nan_update) * (v_fond + v_update)
+    return v_new
