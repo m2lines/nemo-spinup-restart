@@ -3,7 +3,6 @@
 Update NEMO ocean model restart files with machine learning predictions.
 
 ## Installation
-
 Start by installing a virtual environment and then:
 
 ```bash
@@ -13,11 +12,22 @@ pip install .
 ## Usage
 
 ```bash
-nemo-spinup-restart --restart_path /path/to/restarts \
-                    --radical RESTART_NAME \
-                    --mask_file /path/to/mask.nc \
-                    --prediction_path /path/to/predictions \
-                    --ocean_terms ocean_terms.yaml
+nemo-restart 
+  --restart_path /path/to/restarts \
+  --radical RESTART_NAME \
+  --mask_file /path/to/mask.nc \
+  --prediction_path /path/to/predictions \
+  --ocean_terms ocean_terms.yaml
+
+nemo-upscale upscale \\
+  --predictions-dir ./predictions \
+  --coarse-template ./1deg/restart_template.nc \
+  --coarse-mask ./1deg/mesh_mask.nc \
+  --coarse-namelist ./1deg/namelist_cfg \
+  --fine-template ./025deg/restart_template.nc \
+  --fine-mask ./025deg/mesh_mask.nc \
+  --output-dir ./generated \
+  --name C2
 ```
 
 ### Required Arguments
